@@ -15,6 +15,9 @@ const GROUND_RATIO = 0.82;
 const BASE_SPEED = 360;
 const SPEED_PER_SCORE = 2.6;
 const MAX_SPEED = 900;
+const DOUBLE_JUMP_CHARGE_TIME = 2;
+const DOUBLE_JUMP_VELOCITY = JUMP_VELOCITY * 0.85;
+const OUTLINE_WIDTH = 2;
 
 let logicalWidth = 800;
 let dpr = 1;
@@ -32,6 +35,8 @@ let obstacles = [];
 let groundY = 0;
 let distance = 0;
 let score = 0;
+let doubleJumpCharge = 0; // 0..1, ready to use once it reaches 1
+let doubleJumpUsedThisFlight = false;
 let best = Number(localStorage.getItem(BEST_SCORE_KEY)) || 0;
 let state = 'ready'; // 'ready' | 'playing' | 'gameover'
 let nextSpawnAt = 0;
@@ -75,6 +80,8 @@ function resetGame() {
   player.y = groundY - player.height;
   player.vy = 0;
   player.grounded = true;
+  doubleJumpCharge = 0;
+  doubleJumpUsedThisFlight = false;
   nextSpawnAt = currentSpeed() * 1.1;
   scoreEl.textContent = '0';
 }
@@ -84,9 +91,16 @@ function jump() {
     startGame();
     return;
   }
-  if (state === 'playing' && player.grounded) {
+  if (state !== 'playing') return;
+
+  if (player.grounded) {
     player.vy = JUMP_VELOCITY;
     player.grounded = false;
+    doubleJumpUsedThisFlight = false;
+  } else if (!doubleJumpUsedThisFlight && doubleJumpCharge >= 1) {
+    player.vy = DOUBLE_JUMP_VELOCITY;
+    doubleJumpUsedThisFlight = true;
+    doubleJumpCharge = 0;
   }
 }
 
@@ -114,12 +128,15 @@ function update(dt) {
   score = Math.floor(distance / 10);
   scoreEl.textContent = String(score);
 
+  doubleJumpCharge = Math.min(1, doubleJumpCharge + dt / DOUBLE_JUMP_CHARGE_TIME);
+
   player.vy += GRAVITY * dt;
   player.y += player.vy * dt;
   if (player.y >= groundY - player.height) {
     player.y = groundY - player.height;
     player.vy = 0;
     player.grounded = true;
+    doubleJumpUsedThisFlight = false;
   }
 
   for (const obstacle of obstacles) {
@@ -166,6 +183,49 @@ function draw() {
 
   ctx.fillStyle = '#1f2937';
   ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  drawOutlineProgress(player.x, player.y, player.width, player.height, 1, 'rgba(255, 255, 255, 0.35)');
+  const ready = doubleJumpCharge >= 1;
+  drawOutlineProgress(
+    player.x,
+    player.y,
+    player.width,
+    player.height,
+    doubleJumpCharge,
+    ready ? '#ffd43b' : '#2f9e44'
+  );
+}
+
+function drawOutlineProgress(x, y, width, height, progress, color) {
+  const perimeter = 2 * (width + height);
+  let remaining = Math.max(0, Math.min(1, progress)) * perimeter;
+  if (remaining <= 0) return;
+
+  const sides = [
+    { dx: width, dy: 0 },
+    { dx: 0, dy: height },
+    { dx: -width, dy: 0 },
+    { dx: 0, dy: -height },
+  ];
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = OUTLINE_WIDTH;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  let cx = x;
+  let cy = y;
+  ctx.moveTo(cx, cy);
+  for (const side of sides) {
+    if (remaining <= 0) break;
+    const sideLength = Math.hypot(side.dx, side.dy);
+    const used = Math.min(remaining, sideLength);
+    const fraction = used / sideLength;
+    cx += side.dx * fraction;
+    cy += side.dy * fraction;
+    ctx.lineTo(cx, cy);
+    remaining -= used;
+  }
+  ctx.stroke();
 }
 
 function loop(timestamp) {
