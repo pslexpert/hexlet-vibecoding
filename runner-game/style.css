@@ -40,6 +40,7 @@ canvas#game {
   left: 0;
   right: 0;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   padding: 0 16px;
   font-size: 18px;
@@ -47,6 +48,67 @@ canvas#game {
   color: var(--text);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
   pointer-events: none;
+}
+
+#pause-button {
+  pointer-events: auto;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#pause-button:active {
+  transform: scale(0.95);
+}
+
+#pause-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(2px);
+  text-align: center;
+  padding: 16px;
+}
+
+#pause-overlay h1 {
+  margin: 0;
+  font-size: 28px;
+  color: var(--text);
+}
+
+#pause-overlay button {
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#pause-overlay button:active {
+  transform: scale(0.97);
+}
+
+.hidden {
+  display: none;
+}
+
+#overlay.hidden,
+#pause-overlay.hidden {
+  display: none;
 }
 
 #overlay {
@@ -61,10 +123,6 @@ canvas#game {
   backdrop-filter: blur(2px);
   text-align: center;
   padding: 16px;
-}
-
-#overlay.hidden {
-  display: none;
 }
 
 #overlay h1 {
