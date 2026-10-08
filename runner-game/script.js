@@ -6,6 +6,9 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayText = document.getElementById('overlay-text');
 const overlayButton = document.getElementById('overlay-button');
+const pauseButton = document.getElementById('pause-button');
+const pauseOverlay = document.getElementById('pause-overlay');
+const resumeButton = document.getElementById('resume-button');
 
 const BEST_SCORE_KEY = 'runner-game-best';
 const LOGICAL_HEIGHT = 400;
@@ -15,7 +18,7 @@ const GROUND_RATIO = 0.82;
 const BASE_SPEED = 360;
 const SPEED_PER_SCORE = 2.6;
 const MAX_SPEED = 900;
-const DOUBLE_JUMP_CHARGE_TIME = 2;
+const DOUBLE_JUMP_CHARGE_TIME = 1;
 const DOUBLE_JUMP_VELOCITY = JUMP_VELOCITY * 0.85;
 const OUTLINE_WIDTH = 2;
 
@@ -39,6 +42,7 @@ let doubleJumpCharge = 0; // 0..1, ready to use once it reaches 1
 let doubleJumpUsedThisFlight = false;
 let best = Number(localStorage.getItem(BEST_SCORE_KEY)) || 0;
 let state = 'ready'; // 'ready' | 'playing' | 'gameover'
+let isPaused = false;
 let nextSpawnAt = 0;
 let lastTimestamp = 0;
 let rafId = null;
@@ -84,6 +88,21 @@ function resetGame() {
   doubleJumpUsedThisFlight = false;
   nextSpawnAt = currentSpeed() * 1.1;
   scoreEl.textContent = '0';
+  setPaused(false);
+}
+
+function setPaused(value) {
+  if (value && state !== 'playing') return;
+  isPaused = value;
+  pauseOverlay.classList.toggle('hidden', !isPaused);
+  pauseButton.textContent = isPaused ? '▶' : '⏸';
+  if (!isPaused) {
+    lastTimestamp = performance.now();
+  }
+}
+
+function togglePause() {
+  setPaused(!isPaused);
 }
 
 function jump() {
@@ -91,7 +110,7 @@ function jump() {
     startGame();
     return;
   }
-  if (state !== 'playing') return;
+  if (state !== 'playing' || isPaused) return;
 
   if (player.grounded) {
     player.vy = JUMP_VELOCITY;
@@ -108,11 +127,14 @@ function startGame() {
   resetGame();
   state = 'playing';
   overlay.classList.add('hidden');
+  pauseButton.classList.remove('hidden');
   lastTimestamp = performance.now();
 }
 
 function endGame() {
   state = 'gameover';
+  setPaused(false);
+  pauseButton.classList.add('hidden');
   best = Math.max(best, score);
   localStorage.setItem(BEST_SCORE_KEY, String(best));
   bestEl.textContent = `Рекорд: ${best}`;
@@ -232,7 +254,7 @@ function loop(timestamp) {
   const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
   lastTimestamp = timestamp;
 
-  if (state === 'playing') {
+  if (state === 'playing' && !isPaused) {
     update(dt);
   }
   draw();
@@ -247,15 +269,34 @@ function handlePrimaryInput(event) {
 canvas.addEventListener('pointerdown', handlePrimaryInput);
 overlayButton.addEventListener('click', handlePrimaryInput);
 
+pauseButton.addEventListener('click', (event) => {
+  event.preventDefault();
+  togglePause();
+});
+
+resumeButton.addEventListener('click', (event) => {
+  event.preventDefault();
+  setPaused(false);
+});
+
 window.addEventListener('keydown', (event) => {
   if (event.code === 'Space' || event.code === 'ArrowUp') {
     event.preventDefault();
     jump();
+  } else if (event.code === 'KeyP' || event.code === 'Escape') {
+    if (state === 'playing') {
+      event.preventDefault();
+      togglePause();
+    }
   }
 });
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
+    if (state === 'playing') {
+      setPaused(true);
+    }
+  } else {
     lastTimestamp = performance.now();
   }
 });
